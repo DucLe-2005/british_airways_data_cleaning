@@ -1,8 +1,8 @@
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import os, sys
+import config as cfg
 import logging
+import re
+from typing import Dict, Tuple, List, Optional, Union
 
 # Configure logging
 logging.basicConfig(
@@ -150,6 +150,217 @@ def clean_rating_columns(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Successfully cleaned all rating columns")
     return df
 
+def parse_route(route: str) -> Dict[str, Union[str, None]]:
+    """
+    Parse a route string into origin, destination, and transit components,
+    and further extract city and airport information.
+    
+    Args:
+        route (str): The route string to parse (e.g., "London Heathrow to Paris CDG via Amsterdam")
+        
+    Returns:
+        Dict: A dictionary containing the parsed components:
+            - origin: The full origin string
+            - destination: The full destination string
+            - transit: The full transit string (if any)
+            - origin_city: The extracted origin city
+            - origin_airport: The extracted origin airport (3-letter IATA code)
+            - destination_city: The extracted destination city
+            - destination_airport: The extracted destination airport (3-letter IATA code)
+            - transit_city: The extracted transit city (if any)
+            - transit_airport: The extracted transit airport (3-letter IATA code)
+    """
+    # Map of airport codes to their cities
+    AIRPORT_TO_CITY = cfg.AIRPORT_TO_CITY
+    # Map of airport names/keywords to their 3-letter IATA codes
+    AIRPORT_CODES = cfg.AIRPORT_CODES
+    # Map of city names to their common airport codes
+    CITY_TO_AIRPORT = cfg.CITY_TO_AIRPORT
+    
+    def extract_city_airport(location: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extract city and airport from a location string.
+        
+        Args:
+            location (str): The location string to parse (e.g., "London Heathrow", "JFK", "Paris CDG")
+            
+        Returns:
+            Tuple[str, str]: A tuple containing (city, airport) where airport is a 3-letter IATA code
+                             and city is the proper city name (not the airport code)
+        """
+        if not location or pd.isna(location) or location.strip() == '':
+            return None, None
+        
+        location = location.strip().lower()
+        
+        # Check for 3-letter codes that might be IATA codes
+        iata_match = re.search(r'\b([a-z]{3})\b', location)
+        if iata_match:
+            code = iata_match.group(1).upper()
+            # If it's a valid code in our dictionary
+            if code in AIRPORT_TO_CITY:
+                # Get the city for this airport code
+                city = AIRPORT_TO_CITY[code]
+                return city, code
+            
+            # If we don't know the city for this code but it's a valid format
+            if code in [v for v in AIRPORT_CODES.values()]:
+                # Try to extract the city from the location
+                location_without_code = re.sub(r'\b' + iata_match.group(1) + r'\b', '', location).strip()
+                if location_without_code:
+                    return location_without_code.title(), code
+                else:
+                    # If we can't determine the city, use a placeholder
+                    return "Unknown", code
+        
+        # Check for known airport names in the location
+        for airport_name, airport_code in AIRPORT_CODES.items():
+            if airport_name in location:
+                # Get the city for this airport code
+                if airport_code in AIRPORT_TO_CITY:
+                    city = AIRPORT_TO_CITY[airport_code]
+                    return city, airport_code
+                
+                # If we don't have a mapping for this airport code
+                # Extract the city part from the location
+                city_part = location.replace(airport_name, '').strip()
+                if city_part:
+                    return city_part.title(), airport_code
+                else:
+                    # If we can't determine the city, use a placeholder
+                    return "Unknown", airport_code
+        
+        # Check for city names that have default airports
+        for city_name, airport_code in CITY_TO_AIRPORT.items():
+            if city_name in location and len(city_name) > 3:  # Exclude 3-letter airport codes
+                return city_name.title(), airport_code
+        
+        # If we reach here, we couldn't identify an airport code
+        # Return the location as the city and None for airport
+        return location.title(), None
+    
+    if not route or pd.isna(route) or route.strip() == '':
+        return {
+            'origin': None, 'destination': None, 'transit': None,
+            'origin_city': None, 'origin_airport': None,
+            'destination_city': None, 'destination_airport': None,
+            'transit_city': None, 'transit_airport': None
+        }
+    
+    # Normalize the route string
+    route = route.strip()
+    
+    # Initialize result dictionary
+    result = {
+        'origin': None, 'destination': None, 'transit': None,
+        'origin_city': None, 'origin_airport': None,
+        'destination_city': None, 'destination_airport': None,
+        'transit_city': None, 'transit_airport': None
+    }
+    
+    # Check if route contains 'via' for transit
+    if ' via ' in route.lower():
+        parts = route.lower().split(' via ')
+        main_route = parts[0]
+        transit = parts[1]
+        
+        # Split main route into origin and destination
+        if ' to ' in main_route:
+            origin_dest = main_route.split(' to ')
+            origin = origin_dest[0].strip()
+            destination = origin_dest[1].strip() if len(origin_dest) > 1 else None
+        else:
+            origin = main_route.strip()
+            destination = None
+        
+        # Store the original values
+        result['origin'] = origin.title() if origin else None
+        result['destination'] = destination.title() if destination else None
+        result['transit'] = transit.title() if transit else None
+        
+        # Extract city and airport for each component
+        if origin:
+            origin_city, origin_airport = extract_city_airport(origin)
+            result['origin_city'] = origin_city
+            result['origin_airport'] = origin_airport
+        
+        if destination:
+            dest_city, dest_airport = extract_city_airport(destination)
+            result['destination_city'] = dest_city
+            result['destination_airport'] = dest_airport
+        
+        if transit:
+            transit_city, transit_airport = extract_city_airport(transit)
+            result['transit_city'] = transit_city
+            result['transit_airport'] = transit_airport
+    
+    # For routes without transit
+    elif ' to ' in route.lower():
+        parts = route.lower().split(' to ')
+        origin = parts[0].strip()
+        destination = parts[1].strip() if len(parts) > 1 else None
+        
+        # Store the original values
+        result['origin'] = origin.title() if origin else None
+        result['destination'] = destination.title() if destination else None
+        
+        # Extract city and airport for each component
+        if origin:
+            origin_city, origin_airport = extract_city_airport(origin)
+            result['origin_city'] = origin_city
+            result['origin_airport'] = origin_airport
+        
+        if destination:
+            dest_city, dest_airport = extract_city_airport(destination)
+            result['destination_city'] = dest_city
+            result['destination_airport'] = dest_airport
+    
+    # For single location (unlikely but handling edge case)
+    else:
+        origin = route.strip()
+        result['origin'] = origin.title()
+        
+        # Extract city and airport
+        origin_city, origin_airport = extract_city_airport(origin)
+        result['origin_city'] = origin_city
+        result['origin_airport'] = origin_airport
+    
+    return result
+
+def cleaning_route_column(df: pd.DataFrame, route_column: str = 'route') -> pd.DataFrame:
+    """
+    Process a DataFrame containing route information.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing the route information
+        route_column (str): The name of the column containing the route strings
+        
+    Returns:
+        pd.DataFrame: The processed DataFrame with added columns for route components
+    """
+    if route_column not in df.columns:
+        raise ValueError(f"Column '{route_column}' not found in DataFrame")
+    
+    # Apply the parse_route function to each route
+    route_components = df[route_column].apply(parse_route)
+    
+    # Extract the components into separate columns
+    df['origin'] = route_components.apply(lambda x: x['origin'])
+    df['destination'] = route_components.apply(lambda x: x['destination'])
+    df['transit'] = route_components.apply(lambda x: x['transit'])
+    df['origin_city'] = route_components.apply(lambda x: x['origin_city'])
+    df['origin_airport'] = route_components.apply(lambda x: x['origin_airport'])
+    df['destination_city'] = route_components.apply(lambda x: x['destination_city'])
+    df['destination_airport'] = route_components.apply(lambda x: x['destination_airport'])
+    df['transit_city'] = route_components.apply(lambda x: x['transit_city'])
+    df['transit_airport'] = route_components.apply(lambda x: x['transit_airport'])
+    
+    df.drop(['origin', 'transit', 'destination', 'route'], axis=1, inplace=True)
+
+    logger.info("Successfully cleaned all routes columns")
+    return df
+
+
 def main():
     df = load_data('data/raw_data.csv')
 
@@ -161,6 +372,7 @@ def main():
     df = clean_date_flown_column(df)
     df = clean_recommended_column(df)
     df = clean_rating_columns(df)
+    df = cleaning_route_column(df)
 
     df.to_csv('data/cleaned_data.csv', index=False)
     logger.info("Data cleaning process completed successfully")
