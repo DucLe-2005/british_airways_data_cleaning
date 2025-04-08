@@ -86,7 +86,7 @@ This project focuses on cleaning and preprocessing customer review data from Bri
     - wifi_and_connectivity
     - value_for_money
 
-### 🔟 Route Column Processing (`cleaning_route_column`)
+### 🔟 Route Column Processing (`clean_route_column`)
 
 - Process route information into detailed components
 - Extract and create new columns:
@@ -102,7 +102,17 @@ This project focuses on cleaning and preprocessing customer review data from Bri
   - Extract IATA codes and city names
   - Remove original route column
 
-### 1️⃣1️⃣ Save Data (`main`)
+### 1️⃣1️⃣ Aircraft Column Cleaning (`clean_aircraft_column`)
+
+- Clean and standardize aircraft information
+- Process:
+  - Remove unnecessary text like "Aircraft:" prefix
+  - Standardize common aircraft names
+  - Handle variations in Boeing and Airbus nomenclature
+  - Strip whitespace and normalize formatting
+- Example: "Aircraft: B777-300" → "Boeing 777-300"
+
+### 1️⃣2️⃣ Save Data (`main`)
 - Save the cleaned data to a new CSV file
 - Process:
   - Export DataFrame to CSV
@@ -132,7 +142,7 @@ The cleaned dataset includes the following columns:
 | `nationality`            | Reviewer's nationality                                        | String without parentheses (e.g., "United Kingdom") |
 | `verify`                 | Verification status                                           | Boolean (True/False)                                |
 | `review_body`            | Review content                                                | String without verification text                    |
-| `aircraft`               | Aircraft type                                                 | String (e.g., "Boeing 777-300")                     |
+| `aircraft`               | Aircraft type                                                 | String (standardized format, e.g., "Boeing 777-300") |
 | `type_of_traveller`      | Traveler category                                             | String (e.g., "Business", "Leisure")                |
 | `seat_type`              | Class of service                                              | String (e.g., "Business Class", "Economy")          |
 | `date_flown`             | Flight date                                                   | "YYYY-MM-DD" (e.g., "2025-03-01")                   |

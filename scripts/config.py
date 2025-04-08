@@ -645,3 +645,16 @@ CITY_TO_AIRPORT = {
     'st kitts': 'SKB',
     'granada': 'GRX'
 }
+
+COLUMN_ORDER = [
+    'verify', 'date_submitted', 'date_flown',
+    'customer_name', 'nationality', 
+    'type_of_traveller', 'seat_type',
+    'aircraft', 
+    'origin_city', 'origin_airport', 
+    'destination_city', 'destination_airport', 
+    'transit_city', 'transit_airport',
+    'seat_comfort', 'cabin_staff_service', 'food_and_beverages', 
+    'inflight_entertainment', 'ground_service', 'wifi_and_connectivity', 
+    'value_for_money', 'recommended', 'review'
+]
