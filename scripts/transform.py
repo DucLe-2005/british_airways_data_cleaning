@@ -94,16 +94,18 @@ def create_verify_column(df: pd.DataFrame) -> pd.DataFrame:
 
 def clean_review_body(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean the review_body column by removing the verification status
+    Clean the review_body column by removing the verification status and renaming it to review
     Args:
         df (pd.DataFrame): The dataframe to clean
     Returns:
-        pd.DataFrame: The cleaned dataframe
+        pd.DataFrame: The cleaned dataframe with review_body renamed to review
     """
-    # Split review body on '|' and take second part, stripping whitespace
+    # Split review_body on '|' and take second part, stripping whitespace
     df.loc[df['verify'], 'review_body'] = df.loc[df['verify'], 'review_body'].str.split('|').str[1].str.strip()
     
-    logger.info("Successfully cleaned review_body column")
+    # Rename review_body to review
+    df.rename(columns={'review_body': 'review'}, inplace=True)
+    
     return df
 
 def clean_date_flown_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -327,7 +329,7 @@ def parse_route(route: str) -> Dict[str, Union[str, None]]:
     
     return result
 
-def cleaning_route_column(df: pd.DataFrame, route_column: str = 'route') -> pd.DataFrame:
+def clean_route_column(df: pd.DataFrame, route_column: str = 'route') -> pd.DataFrame:
     """
     Process a DataFrame containing route information.
     
@@ -357,9 +359,99 @@ def cleaning_route_column(df: pd.DataFrame, route_column: str = 'route') -> pd.D
     
     df.drop(['origin', 'transit', 'destination', 'route'], axis=1, inplace=True)
 
-    logger.info("Successfully cleaned all routes columns")
+    logger.info("Successfully cleaned route columns")
     return df
 
+def clean_aircraft_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cleans the 'aircraft' column in the input DataFrame by extracting and standardizing aircraft model names.
+    
+    - Keeps only the base model (e.g., 'A320', 'Boeing 777', 'Embraer 190')
+    - Removes variants and descriptors (e.g., 'neo', '-200ER', etc.)
+    - Normalizes shorthand codes like 'B744' to 'Boeing 744'
+    - Converts 'E190', 'Embraer-190', 'EmbraerE190', etc. to 'Embraer 190'
+    - Handles non-breaking space characters
+    - Modifies the original 'aircraft' column with the cleaned values
+    
+    Parameters:
+        df (pd.DataFrame): Input DataFrame containing an 'aircraft' column
+    
+    Returns:
+        pd.DataFrame: DataFrame with the 'aircraft' column cleaned
+    """
+    def clean_entry(entry):
+        if pd.isna(entry):
+            return None
+
+        entry = str(entry).replace('\xa0', ' ')  # Replace non-breaking space
+
+        # Normalize Embraer variants
+        entry = re.sub(r'\bE-?(\d{3})\b', r'Embraer \1', entry, flags=re.IGNORECASE)
+        entry = re.sub(r'\bEmbraer[- ]?(\d{3})\b', r'Embraer \1', entry, flags=re.IGNORECASE)
+        entry = re.sub(r'\bEmbraerE(\d{3})\b', r'Embraer \1', entry, flags=re.IGNORECASE)
+        entry = re.sub(r'\bEmbraer(\d{3})\b', r'Embraer \1', entry, flags=re.IGNORECASE)
+
+        # Match Embraer models
+        embraer_match = re.match(r'.*(Embraer\s(170|190|195)).*', entry, flags=re.IGNORECASE)
+        if embraer_match:
+            return f"Embraer {embraer_match.group(2)}"
+
+        # Match Boeing models
+        boeing_match = re.match(r'.*(Boeing\s7\d{2}).*', entry, flags=re.IGNORECASE)
+        if boeing_match:
+            return boeing_match.group(1)
+
+        # Match Boeing numeric shorthand
+        boeing_short_match = re.match(r'.*\b(B744|B747|B757|B767|B777|B787|B789|B737)\b.*', entry, flags=re.IGNORECASE)
+        if boeing_short_match:
+            code = boeing_short_match.group(1).upper()
+            mapping = {
+                'B737': 'Boeing 737',
+                'B744': 'Boeing 744',
+                'B747': 'Boeing 747',
+                'B757': 'Boeing 757',
+                'B767': 'Boeing 767',
+                'B777': 'Boeing 777',
+                'B787': 'Boeing 787',
+                'B789': 'Boeing 789',
+            }
+            return mapping.get(code)
+
+        # Match Airbus models (strip "neo" suffix)
+        airbus_match = re.match(r'.*\b(A318|A319|A320|A320NEO|A321|A321NEO|A322|A329|A330|A340|A350|A366|A380)\b.*', entry, flags=re.IGNORECASE)
+        if airbus_match:
+            model = airbus_match.group(1).upper()
+            return model.replace('NEO', '')
+
+        # Match SAAB 2000
+        saab_match = re.match(r'.*(Saab\s2000|SAAB\s2000).*', entry, flags=re.IGNORECASE)
+        if saab_match:
+            return "Saab 2000"
+
+        return None
+
+    df['aircraft'] = df['aircraft'].apply(clean_entry)
+
+    logger.info("Successfully cleaned aircraft column")
+    return df
+
+def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reorder the columns of the DataFrame to a specified order.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame to reorder
+        
+    Returns:
+        pd.DataFrame: The DataFrame with reordered columns
+    """
+    column_order = cfg.COLUMN_ORDER
+    
+    # Reorder the DataFrame columns
+    df = df[column_order]
+    
+    logger.info("Successfully reorder all columns")
+    return df
 
 def main():
     df = load_data('data/raw_data.csv')
@@ -372,7 +464,9 @@ def main():
     df = clean_date_flown_column(df)
     df = clean_recommended_column(df)
     df = clean_rating_columns(df)
-    df = cleaning_route_column(df)
+    df = clean_route_column(df)
+    df = clean_aircraft_column(df)
+    df = reorder_columns(df)
 
     df.to_csv('data/cleaned_data.csv', index=False)
     logger.info("Data cleaning process completed successfully")
