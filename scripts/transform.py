@@ -94,19 +94,45 @@ def create_verify_column(df: pd.DataFrame) -> pd.DataFrame:
 
 def clean_review_body(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean the review_body column by removing the verification status and renaming it to review
+    Cleans the 'review_body' column in the DataFrame by splitting it into 'verify' and 'review' columns.
+    
+    - Splits the 'review_body' column on the '|' character.
+    - If only one part is present after splitting, assigns it to 'review' and sets 'verify' to NA.
+    - If two parts are present, assigns the first to 'verify' and the second to 'review'.
+    - Swaps 'verify' and 'review' values if 'review' is null and 'verify' is not.
+    - Updates 'verify' to a boolean indicating if it contains 'Trip Verified'.
+    - Strips whitespace from the 'review' column.
+    - Drops the original 'review_body' column from the DataFrame.
+    
     Args:
-        df (pd.DataFrame): The dataframe to clean
+        df (pd.DataFrame): The DataFrame containing the 'review_body' column to clean.
+        
     Returns:
-        pd.DataFrame: The cleaned dataframe with review_body renamed to review
+        pd.DataFrame: The DataFrame with 'review_body' split into 'verify' and 'review' columns.
     """
-    # Split review_body on '|' and take second part, stripping whitespace
-    df.loc[df['verify'], 'review_body'] = df.loc[df['verify'], 'review_body'].str.split('|').str[1].str.strip()
+    if 'review_body' not in df.columns:
+        return df
     
-    # Rename review_body to review
-    df.rename(columns={'review_body': 'review'}, inplace=True)
+    split_df = df['review_body'].str.split('|', expand=True)
     
+    if len(split_df.columns) == 1:
+        df['review'] = split_df[0]
+        df['verify'] = pd.NA
+    else:
+        df['verify'], df['review'] = split_df[0], split_df[1]
+    
+    mask = df['review'].isnull() & df['verify'].notnull()
+    df.loc[mask, ['review', 'verify']] = df.loc[mask, ['verify', 'review']].values
+    
+    df['verify'] = df['verify'].str.contains('Trip Verified', case=False, na=False)
+    
+    df['review'] = df['review'].str.strip()
+    
+    df.drop(columns=['review_body'], inplace=True)
+
+    logger.info('Successfully cleaned column review body')
     return df
+
 
 def clean_date_flown_column(df: pd.DataFrame) -> pd.DataFrame:
     """
