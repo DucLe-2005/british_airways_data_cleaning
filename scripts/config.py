@@ -671,6 +671,31 @@ city_replacements = {
     'Zürich': 'Zurich'
 }
 
+# Standardize city names
+city_replacements = {
+    'Abuja Nigeria': 'Abuja',
+    'Abuja, Nigeria': 'Abuja',
+    'Bangalore': 'Bengaluru',
+    'Belfast City': 'Belfast',
+    'Berlin Schönefeld': 'Berlin',
+    'Berlin Tegel': 'Berlin',
+    'Dusseldorf': 'Düsseldorf',
+    'Duesseldorf': 'Düsseldorf',
+    'İStanbul': 'Istanbul',
+    'Larnaca': 'Larnaca',
+    'Montréal': 'Montreal',
+    'Palma De Mallorca': 'Palma',
+    'Palma de Mallorca': 'Palma',
+    'Rio De Janiero': 'Rio de Janeiro',
+    'St Lucia': 'Saint Lucia',
+    'St. Lucia': 'Saint Lucia',
+    'St Petersburg': 'St. Petersburg',
+    'St Petersburgh': 'St. Petersburg',
+    'Washington Dc': 'Washington',
+    'Washington Dulles': 'Washington',
+    'Zürich': 'Zurich'
+}
+
 COLUMN_ORDER = [
     'verify', 'date_submitted', 'date_flown',
     'customer_name', 'nationality', 
@@ -683,3 +708,4 @@ COLUMN_ORDER = [
     'inflight_entertainment', 'ground_service', 'wifi_and_connectivity', 
     'value_for_money', 'recommended', 'review'
 ]
+

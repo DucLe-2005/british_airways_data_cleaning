@@ -384,29 +384,7 @@ def clean_route_column(df: pd.DataFrame, route_column: str = 'route') -> pd.Data
     df['transit_airport'] = route_components.apply(lambda x: x['transit_airport'])
 
     # Standardize city names
-    city_replacements = {
-        'Abuja Nigeria': 'Abuja',
-        'Abuja, Nigeria': 'Abuja',
-        'Bangalore': 'Bengaluru',
-        'Belfast City': 'Belfast',
-        'Berlin Schönefeld': 'Berlin',
-        'Berlin Tegel': 'Berlin',
-        'Dusseldorf': 'Düsseldorf',
-        'Duesseldorf': 'Düsseldorf',
-        'İStanbul': 'Istanbul',
-        'Larnaca': 'Larnaca',
-        'Montréal': 'Montreal',
-        'Palma De Mallorca': 'Palma',
-        'Palma de Mallorca': 'Palma',
-        'Rio De Janiero': 'Rio de Janeiro',
-        'St Lucia': 'Saint Lucia',
-        'St. Lucia': 'Saint Lucia',
-        'St Petersburg': 'St. Petersburg',
-        'St Petersburgh': 'St. Petersburg',
-        'Washington Dc': 'Washington',
-        'Washington Dulles': 'Washington',
-        'Zürich': 'Zurich'
-    }
+    city_replacements = cfg.city_replacements
     
     for column in ['origin_city', 'destination_city', 'transit_city']:
         df[column] = df[column].replace(city_replacements)
