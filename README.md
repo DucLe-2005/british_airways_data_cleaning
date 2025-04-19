@@ -1,6 +1,13 @@
-# ✈️ British Airways Data Cleaning Project
+# ✈️ British Airways Data Cleaning
 
 This project focuses on cleaning and preprocessing customer review data from British Airways. The data includes customer feedback, ratings, and various aspects of their flight experience.
+
+
+## ⚙️ Technology Stack
+![BritishAirways (1)](https://github.com/user-attachments/assets/b903da11-27ae-412d-ad2e-3067e8f7aa04)
+
+- **Data Source**: [British Airways Reviews on AirlineQuality](https://www.airlinequality.com/airline-reviews/british-airways/)
+- **Programming Language**: Python 3.12.5  
 
 ## 🔍 Data Cleaning Steps
 
